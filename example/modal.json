@@ -1,0 +1,359 @@
+{
+  "type": "modal",
+  "callback_id": "full_input_modal",
+  "title": {
+    "type": "plain_text",
+    "text": "Comprehensive Input Form",
+    "emoji": true
+  },
+  "submit": {
+    "type": "plain_text",
+    "text": "Submit",
+    "emoji": true
+  },
+  "close": {
+    "type": "plain_text",
+    "text": "Cancel",
+    "emoji": true
+  },
+  "private_metadata": "some_secret_data_here",
+  "blocks": [
+    {
+      "type": "section",
+      "text": {
+        "type": "mrkdwn",
+        "text": "*Welcome! Please fill out the form below.*"
+      }
+    },
+    {
+      "type": "divider"
+    },
+    {
+      "block_id": "plain_text_input_block",
+      "type": "input",
+      "element": {
+        "type": "plain_text_input",
+        "action_id": "plain_text_value",
+        "placeholder": {
+          "type": "plain_text",
+          "text": "Enter your name"
+        },
+        "initial_value": "John Doe",
+        "min_length": 3,
+        "max_length": 100
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Your Name"
+      },
+      "hint": {
+        "type": "plain_text",
+        "text": "Please enter your full name."
+      },
+      "optional": false
+    },
+    {
+      "block_id": "multi_line_text_input_block",
+      "type": "input",
+      "element": {
+        "type": "plain_text_input",
+        "action_id": "multi_line_text_value",
+        "multiline": true,
+        "placeholder": {
+          "type": "plain_text",
+          "text": "Tell us about yourself"
+        },
+        "initial_value": "I am a helpful AI assistant.",
+        "min_length": 10,
+        "max_length": 500
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "About You"
+      },
+      "optional": true
+    },
+    {
+      "block_id": "number_input_block",
+      "type": "input",
+      "element": {
+        "type": "number_input",
+        "action_id": "number_value",
+        "is_decimal_allowed": false,
+        "min_value": "1",
+        "max_value": "100",
+        "initial_value": "42",
+        "placeholder": {
+          "type": "plain_text",
+          "text": "Enter a number between 1 and 100"
+        }
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Your Favorite Number"
+      },
+      "optional": false
+    },
+    {
+      "block_id": "date_picker_block",
+      "type": "input",
+      "element": {
+        "type": "datepicker",
+        "action_id": "date_value",
+        "initial_date": "2025-06-14",
+        "placeholder": {
+          "type": "plain_text",
+          "text": "Select a date"
+        }
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Date of Birth"
+      },
+      "optional": false
+    },
+    {
+      "block_id": "time_picker_block",
+      "type": "input",
+      "element": {
+        "type": "timepicker",
+        "action_id": "time_value",
+        "initial_time": "09:15",
+        "placeholder": {
+          "type": "plain_text",
+          "text": "Select a time"
+        }
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Preferred Time"
+      },
+      "optional": true
+    },
+    {
+      "block_id": "datetime_picker_block",
+      "type": "input",
+      "element": {
+        "type": "datetimepicker",
+        "action_id": "datetime_value",
+        "initial_date_time": 1718372100
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Appointment Time (Date & Time)"
+      },
+      "optional": false
+    },
+    {
+      "block_id": "static_select_block",
+      "type": "input",
+      "element": {
+        "type": "static_select",
+        "action_id": "static_select_value",
+        "placeholder": {
+          "type": "plain_text",
+          "text": "Select an option"
+        },
+        "options": [
+          {
+            "text": {
+              "type": "plain_text",
+              "text": "Option One"
+            },
+            "value": "value_one"
+          },
+          {
+            "text": {
+              "type": "plain_text",
+              "text": "Option Two"
+            },
+            "value": "value_two"
+          },
+          {
+            "text": {
+              "type": "plain_text",
+              "text": "Option Three"
+            },
+            "value": "value_three"
+          }
+        ],
+        "initial_option": {
+          "text": {
+            "type": "plain_text",
+            "text": "Option Two"
+          },
+          "value": "value_two"
+        }
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Choose an Option"
+      },
+      "optional": false
+    },
+    {
+      "block_id": "external_select_block",
+      "type": "input",
+      "element": {
+        "type": "external_select",
+        "action_id": "external_select_value",
+        "placeholder": {
+          "type": "plain_text",
+          "text": "Search for an item"
+        },
+        "min_query_length": 3
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Select from External Source"
+      },
+      "hint": {
+        "type": "plain_text",
+        "text": "Requires a Slack app external data source to populate options."
+      },
+      "optional": true
+    },
+    {
+      "block_id": "user_select_block",
+      "type": "input",
+      "element": {
+        "type": "users_select",
+        "action_id": "user_select_value",
+        "placeholder": {
+          "type": "plain_text",
+          "text": "Select a user"
+        },
+        "initial_user": "U012ABCDEF"
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Assign to User"
+      },
+      "optional": false
+    },
+    {
+      "block_id": "conversation_select_block",
+      "type": "input",
+      "element": {
+        "type": "conversations_select",
+        "action_id": "conversation_select_value",
+        "placeholder": {
+          "type": "plain_text",
+          "text": "Select a conversation"
+        },
+        "initial_conversation": "C0123456789"
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Select a Conversation"
+      },
+      "optional": true
+    },
+    {
+      "block_id": "channel_select_block",
+      "type": "input",
+      "element": {
+        "type": "channels_select",
+        "action_id": "channel_select_value",
+        "placeholder": {
+          "type": "plain_text",
+          "text": "Select a channel"
+        },
+        "initial_channel": "C012A3BCDE"
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Post to Channel"
+      },
+      "optional": false
+    },
+    {
+      "block_id": "checkbox_group_block",
+      "type": "input",
+      "element": {
+        "type": "checkboxes",
+        "action_id": "checkboxes_value",
+        "options": [
+          {
+            "text": {
+              "type": "mrkdwn",
+              "text": "Option A"
+            },
+            "value": "option_a"
+          },
+          {
+            "text": {
+              "type": "mrkdwn",
+              "text": "Option B"
+            },
+            "value": "option_b"
+          },
+          {
+            "text": {
+              "type": "mrkdwn",
+              "text": "Option C"
+            },
+            "value": "option_c"
+          }
+        ],
+        "initial_options": [
+          {
+            "text": {
+              "type": "mrkdwn",
+              "text": "Option A"
+            },
+            "value": "option_a"
+          },
+          {
+            "text": {
+              "type": "mrkdwn",
+              "text": "Option C"
+            },
+            "value": "option_c"
+          }
+        ]
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Choose your preferences"
+      },
+      "optional": true
+    },
+    {
+      "block_id": "radio_button_group_block",
+      "type": "input",
+      "element": {
+        "type": "radio_buttons",
+        "action_id": "radio_buttons_value",
+        "options": [
+          {
+            "text": {
+              "type": "mrkdwn",
+              "text": "Choice 1"
+            },
+            "value": "choice_1"
+          },
+          {
+            "text": {
+              "type": "mrkdwn",
+              "text": "Choice 2"
+            },
+            "value": "choice_2"
+          }
+        ],
+        "initial_option": {
+          "text": {
+            "type": "mrkdwn",
+            "text": "Choice 2"
+          },
+          "value": "choice_2"
+        }
+      },
+      "label": {
+        "type": "plain_text",
+        "text": "Select one choice"
+      },
+      "optional": false
+    }
+  ]
+}
