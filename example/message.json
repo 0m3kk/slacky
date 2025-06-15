@@ -1,0 +1,41 @@
+{
+  "blocks": [
+    {
+      "type": "actions",
+      "elements": [
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "Approve",
+            "emoji": true
+          },
+          "style": "primary",
+          "value": "approve_request",
+          "action_id": "button_approve"
+        },
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "Deny",
+            "emoji": true
+          },
+          "style": "danger",
+          "value": "deny_request",
+          "action_id": "button_deny"
+        },
+        {
+          "type": "button",
+          "text": {
+            "type": "plain_text",
+            "text": "More Info",
+            "emoji": true
+          },
+          "url": "https://www.example.com",
+          "action_id": "button_more_info"
+        }
+      ]
+    }
+  ]
+}
