@@ -34,9 +34,9 @@ type FullInputModalInputHandler interface {
 // BlockActionHandlers defines an interface for all simple block actions that do not require view state.
 // A single struct should implement all of these methods.
 type BlockActionHandlers interface {
+	HandleButtonApprove(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]SlackErrorResp, error)
 	HandleButtonDeny(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]SlackErrorResp, error)
 	HandleButtonMoreInfo(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]SlackErrorResp, error)
-	HandleButtonApprove(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]SlackErrorResp, error)
 }
 
 // FullInputModalInputBlockActionHandler defines a handler for a block action that occurs within the
@@ -217,12 +217,12 @@ func (d *Dispatcher) dispatchBlockActions(ctx context.Context, interaction slack
 		if d.blockActionHandlers != nil {
 			var handlerErr error
 			switch action.ActionID {
+			case "button_approve":
+				slackErrorResp, handlerErr = d.blockActionHandlers.HandleButtonApprove(ctx, interaction, *action)
 			case "button_deny":
 				slackErrorResp, handlerErr = d.blockActionHandlers.HandleButtonDeny(ctx, interaction, *action)
 			case "button_more_info":
 				slackErrorResp, handlerErr = d.blockActionHandlers.HandleButtonMoreInfo(ctx, interaction, *action)
-			case "button_approve":
-				slackErrorResp, handlerErr = d.blockActionHandlers.HandleButtonApprove(ctx, interaction, *action)
 			}
 			if handlerErr != nil {
 				return nil, fmt.Errorf("block action handler for '%s' failed: %w", action.ActionID, handlerErr)

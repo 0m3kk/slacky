@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	structTemplateFile     = "templates/template.tmpl"
+	structTemplateFile     = "templates/struct.tmpl"
 	dispatcherTemplateFile = "templates/dispatcher.tmpl"
 )
 
