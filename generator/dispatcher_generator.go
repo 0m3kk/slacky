@@ -25,7 +25,7 @@ func GenerateDispatcher(structs []model.StructInfo, tmplPath string, outputDir s
 	}
 
 	// 1. Read and parse the template file
-	tmpl, err := template.ParseFiles(tmplPath)
+	tmpl, err := template.New(filepath.Base(tmplPath)).Funcs(helperFunc).ParseFiles(tmplPath)
 	if err != nil {
 		return fmt.Errorf("failed to parse dispatcher template file '%s': %w", tmplPath, err)
 	}

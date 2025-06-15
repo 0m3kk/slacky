@@ -3,21 +3,31 @@
 package {{.PackageName}}
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/slack-go/slack"
 )
 
+type SlackErrorResp struct {
+    Name string  `json:"name"`
+    Error string `json:"error"`
+}
+
 // --- View Submission Handlers ---
 
 {{range .Structs}}
-// {{.TypeName}}Handler defines the handler for a specific view submission.
+// {{.TypeName}}Handler defines the handler for the "{{.CallbackID}}" view submission.
 // Developers should implement this for each modal.
 type {{.TypeName}}Handler interface {
-    Handle(ctx context.Context, interaction slack.InteractionCallback, input {{.TypeName}}) error
+    Handle{{camel .CallbackID}}(ctx context.Context, interaction slack.InteractionCallback, input {{.TypeName}}) ([]SlackErrorResp, error)
 }
 {{end}}
 
@@ -25,19 +35,21 @@ type {{.TypeName}}Handler interface {
 
 // BlockActionHandler defines the handler for a block action, like a button click.
 type BlockActionHandler interface {
-    Handle(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) error
+    Handle(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]SlackErrorResp, error)
 }
 
 // Dispatcher handles the routing of all interaction payloads.
 type Dispatcher struct {
+    signingSecret       string
 	viewHandlers        map[string]interface{}
 	blockActionHandlers map[string]BlockActionHandler
 }
 
 // NewDispatcher creates a new dispatcher.
-func NewDispatcher() *Dispatcher {
+func NewDispatcher(signingSecret string) *Dispatcher {
 	return &Dispatcher{
-		viewHandlers:        make(map[string]interface{}),
+	    signingSecret      : signingSecret,
+		viewHandlers       : make(map[string]interface{}),
 		blockActionHandlers: make(map[string]BlockActionHandler),
 	}
 }
@@ -56,26 +68,89 @@ func (d *Dispatcher) RegisterBlockActionHandler(actionID string, handler BlockAc
 	d.blockActionHandlers[actionID] = handler
 }
 
+// HandleInteraction is the core logic that parses the request and calls the dispatcher.
+func (d *Dispatcher) HandleInteraction(w http.ResponseWriter, r *http.Request) {
+    if err := d.verifySigningSecret(r); err != nil {
+        log.Printf("[ERROR] Verify request failed: %v", err)
+        w.WriteHeader(http.StatusBadRequest)
+		return
+    }
+
+    // The payload is URL-encoded, so we must parse it.
+	var interaction slack.InteractionCallback
+	if err := json.Unmarshal([]byte(r.FormValue("payload")), &interaction); err != nil {
+		log.Printf("[ERROR] Failed to unmarshal interaction payload: %v", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+
+	// Dispatch the interaction to the appropriate handler.
+	if slackErrors, err := d.Dispatch(r.Context(), interaction); err != nil {
+	    log.Printf("[ERROR] Dispatcher failed: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	} else if slackErrors != nil {
+		errorJson, err := json.Marshal(err)
+		if err != nil {
+		    log.Printf("[ERROR] Dispatcher failed: %v", err)
+		    w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	    w.Header().Set("Content-Type", "application/json")
+		w.Write(errorJson)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+    // Respond with a 200 OK to acknowledge receipt of the interaction.
+	w.WriteHeader(http.StatusOK)
+}
+
+// verifySigningSecret is a function that verifies the request signature.
+func (d *Dispatcher) verifySigningSecret(r *http.Request) error {
+	// Read the request body.
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return fmt.Errorf("[ERROR] Failed to read request body: %v", err)
+	}
+	// We have to "replace" the body so it can be read again downstream.
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	// Perform the verification.
+	sv, err := slack.NewSecretsVerifier(r.Header, d.signingSecret)
+	if err != nil {
+		return fmt.Errorf("[ERROR] Failed to create SecretsVerifier: %v", err)
+	}
+
+	if _, err := sv.Write(body); err != nil {
+		return fmt.Errorf("[ERROR] Failed to write body to verifier: %v", err)
+	}
+
+	if err := sv.Ensure(); err != nil {
+		return fmt.Errorf("[UNAUTHORIZED] Invalid signing secret: %v", err)
+	}
+
+	return nil
+}
 
 // Dispatch routes the incoming interaction to the appropriate registered handler.
-func (d *Dispatcher) Dispatch(ctx context.Context, interaction slack.InteractionCallback) error {
+func (d *Dispatcher) Dispatch(ctx context.Context, interaction slack.InteractionCallback) ([]SlackErrorResp, error) {
 	switch interaction.Type {
 	case slack.InteractionTypeViewSubmission:
 		return d.dispatchViewSubmission(ctx, interaction)
 	case slack.InteractionTypeBlockActions:
 		return d.dispatchBlockActions(ctx, interaction)
 	default:
-		// Other interaction types (e.g., message_action) can be added here.
-		return nil
+		return nil, fmt.Errorf("unsupported interaction type %s", interaction.Type)
 	}
 }
 
 // dispatchViewSubmission handles routing for view submissions.
-func (d *Dispatcher) dispatchViewSubmission(ctx context.Context, interaction slack.InteractionCallback) error {
+func (d *Dispatcher) dispatchViewSubmission(ctx context.Context, interaction slack.InteractionCallback) ([]SlackErrorResp, error) {
 	callbackID := interaction.View.CallbackID
 	handler, ok := d.viewHandlers[callbackID]
 	if !ok {
-		return fmt.Errorf("no view handler registered for callback_id: %s", callbackID)
+		return nil, fmt.Errorf("no view handler registered for callback_id: %s", callbackID)
 	}
 
 	switch callbackID {
@@ -83,78 +158,94 @@ func (d *Dispatcher) dispatchViewSubmission(ctx context.Context, interaction sla
 	case "{{.CallbackID}}":
 		typedHandler, ok := handler.({{.TypeName}}Handler)
 		if !ok {
-			return fmt.Errorf("handler for {{.CallbackID}} has incorrect type")
+			return nil, fmt.Errorf("handler for {{.CallbackID}} has incorrect type")
 		}
 		var input {{.TypeName}}
 		if err := unmarshalStateValues(interaction.View.State.Values, &input); err != nil {
-			return fmt.Errorf("failed to bind values for '{{.CallbackID}}': %w", err)
+			return nil, fmt.Errorf("failed to bind values for '{{.CallbackID}}': %w", err)
 		}
-		return typedHandler.Handle(ctx, interaction, input)
+		return typedHandler.Handle{{camel .CallbackID}}(ctx, interaction, input)
 	{{- end}}
 	default:
-		return fmt.Errorf("internal dispatcher error: callback_id %s not found in switch", callbackID)
+		return nil, fmt.Errorf("internal dispatcher error: callback_id %s not found in switch", callbackID)
 	}
 }
 
 // dispatchBlockActions handles routing for block actions.
-func (d *Dispatcher) dispatchBlockActions(ctx context.Context, interaction slack.InteractionCallback) error {
+func (d *Dispatcher) dispatchBlockActions(ctx context.Context, interaction slack.InteractionCallback) ([]SlackErrorResp, error) {
 	if interaction.ActionCallback.BlockActions == nil {
-		return nil // No actions to process
+		return nil, nil // No actions to process
 	}
-	// A single interaction can have multiple actions, process them all.
 	for _, action := range interaction.ActionCallback.BlockActions {
 		if handler, ok := d.blockActionHandlers[action.ActionID]; ok {
-			if err := handler.Handle(ctx, interaction, *action); err != nil {
-				return fmt.Errorf("block action handler for action_id '%s' failed: %w", action.ActionID, err)
+			if slackErrors, err := handler.Handle(ctx, interaction, *action); err != nil {
+				return slackErrors, fmt.Errorf("block action handler for action_id '%s' failed: %w", action.ActionID, err)
 			}
 		}
-		// If no handler is registered for an action, we simply ignore it.
 	}
-	return nil
+	return nil, nil
 }
 
-// unmarshalStateValues is a helper to decode the nested state values from a modal
-// submission into a flat struct. It now supports more element types.
+// unmarshalStateValues decodes the nested state values from a modal submission into the target struct.
 func unmarshalStateValues(stateValues map[string]map[string]slack.BlockAction, target interface{}) error {
+	// Create a flat map to hold the values extracted from the Slack payload.
+	// Using interface{} allows us to store values of different types (string, int64, []string).
 	values := make(map[string]interface{})
 
 	for _, blockActions := range stateValues {
 		for actionID, action := range blockActions {
 			switch action.Type {
-			case "plain_text_input", "datepicker", "timepicker":
+			// These types have their value in a string format.
+			case "plain_text_input":
 				values[actionID] = action.Value
-			case "static_select", "radio_buttons":
-				if action.SelectedOption.Value != "" {
-					values[actionID] = action.SelectedOption.Value
-				}
-			case "multi_static_select", "checkboxes":
+			case "datepicker":
+				values[actionID] = action.SelectedDate
+			case "timepicker":
+				values[actionID] = action.SelectedTime
+
+			case "number_input":
+				values[actionID], _ = strconv.ParseInt(action.Value, 10, 64)
+
+			// These select types return a single string value.
+			case "static_select", "external_select", "radio_buttons":
+				values[actionID] = action.SelectedOption.Value
+			case "users_select":
+				values[actionID] = action.SelectedUser
+			case "conversations_select":
+				values[actionID] = action.SelectedConversation
+			case "channels_select":
+				values[actionID] = action.SelectedChannel
+
+			// This type returns a native integer (Unix timestamp).
+			case "datetimepicker":
+				values[actionID] = action.SelectedDateTime
+
+			// These multi-select types return a slice of strings.
+			case "checkboxes", "multi_static_select", "multi_external_select":
 				var selectedValues []string
 				for _, opt := range action.SelectedOptions {
 					selectedValues = append(selectedValues, opt.Value)
 				}
-				// Marshal to a JSON string so it fits in the string field.
-				jsonBytes, err := json.Marshal(selectedValues)
-				if err != nil {
-					return fmt.Errorf("failed to marshal multi-select options for %s: %w", actionID, err)
-				}
-				values[actionID] = string(jsonBytes)
-			case "button":
-				// Buttons do not have state values in a view submission, they trigger block actions.
-				// We can safely ignore them here.
-			default:
-				// Potentially log unhandled but present state values.
+				values[actionID] = selectedValues
+			case "multi_users_select":
+				values[actionID] = action.SelectedUsers
+			case "multi_conversations_select":
+				values[actionID] = action.SelectedConversations
+			case "multi_channels_select":
+				values[actionID] = action.SelectedChannels
 			}
 		}
 	}
 
+	// Marshal the intermediate map into JSON bytes.
 	jsonBytes, err := json.Marshal(values)
 	if err != nil {
 		return fmt.Errorf("failed to marshal intermediate values to JSON: %w", err)
 	}
 
-	// Use a decoder to handle potential type mismatches more gracefully.
+	// Unmarshal the JSON bytes into the final, strongly-typed target struct.
 	dec := json.NewDecoder(strings.NewReader(string(jsonBytes)))
-	dec.DisallowUnknownFields() // Be strict about matching fields.
+	dec.DisallowUnknownFields() // Be strict: error if the JSON has keys not in the struct.
 
 	if err := dec.Decode(target); err != nil {
 		return fmt.Errorf("failed to decode JSON to target struct: %w", err)

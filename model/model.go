@@ -20,8 +20,9 @@ type SlackBlock struct {
 // SlackElement represents an interactive component within a block.
 // For "input" blocks, this contains the actual input field (e.g., text input, select menu).
 type SlackElement struct {
-	Type     string `json:"type"`
-	ActionID string `json:"action_id"`
+	Type             string `json:"type"`
+	ActionID         string `json:"action_id"`
+	IsDecimalAllowed bool   `json:"is_decimal_allowed,omitempty"` // For number_input
 }
 
 // SlackText represents a text object, used for labels and other text content.
@@ -33,6 +34,7 @@ type SlackText struct {
 // FieldInfo holds the data for a single field in the generated struct.
 type FieldInfo struct {
 	Name    string
+	GoType  string
 	JSONTag string
 }
 

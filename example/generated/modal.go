@@ -4,17 +4,17 @@ package generated
 
 // FullInputModalInput represents the input fields from the "full_input_modal" modal.
 type FullInputModalInput struct {
-	PlainTextValue          string `json:"plain_text_value"`
-	MultiLineTextValue      string `json:"multi_line_text_value"`
-	NumberValue             string `json:"number_value"`
-	DateValue               string `json:"date_value"`
-	TimeValue               string `json:"time_value"`
-	DatetimeValue           string `json:"datetime_value"`
-	StaticSelectValue       string `json:"static_select_value"`
-	ExternalSelectValue     string `json:"external_select_value"`
-	UserSelectValue         string `json:"user_select_value"`
-	ConversationSelectValue string `json:"conversation_select_value"`
-	ChannelSelectValue      string `json:"channel_select_value"`
-	CheckboxesValue         string `json:"checkboxes_value"`
-	RadioButtonsValue       string `json:"radio_buttons_value"`
+	PlainTextValue          string   `json:"plain_text_value"`
+	MultiLineTextValue      string   `json:"multi_line_text_value"`
+	NumberValue             int64    `json:"number_value"`
+	DateValue               string   `json:"date_value"`
+	TimeValue               string   `json:"time_value"`
+	DatetimeValue           int64    `json:"datetime_value"`
+	StaticSelectValue       string   `json:"static_select_value"`
+	ExternalSelectValue     string   `json:"external_select_value"`
+	UserSelectValue         string   `json:"user_select_value"`
+	ConversationSelectValue string   `json:"conversation_select_value"`
+	ChannelSelectValue      string   `json:"channel_select_value"`
+	CheckboxesValue         []string `json:"checkboxes_value"`
+	RadioButtonsValue       string   `json:"radio_buttons_value"`
 }

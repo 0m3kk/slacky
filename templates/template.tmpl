@@ -5,6 +5,6 @@ package {{.PackageName}}
 // {{.StructName}} represents the input fields from the "{{.CallbackID}}" modal.
 type {{.StructName}} struct {
 {{- range .Fields}}
-	{{camel .Name}} string `json:"{{snake .Name}}"`
+	{{camel .Name}} {{.GoType}} `json:"{{snake .Name}}"`
 {{- end}}
 }
