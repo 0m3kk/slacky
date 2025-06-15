@@ -33,16 +33,29 @@ type {{.TypeName}}Handler interface {
 
 // --- Block Action Handlers ---
 
-// BlockActionHandler defines the handler for a block action, like a button click.
-type BlockActionHandler interface {
-    Handle(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]SlackErrorResp, error)
+// BlockActionHandlers defines an interface for all simple block actions that do not require view state.
+// A single struct should implement all of these methods.
+type BlockActionHandlers interface {
+{{- range .SimpleActionIDs}}
+    Handle{{. | camel}}(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]SlackErrorResp, error)
+{{- end}}
 }
+
+
+{{range .Structs}}
+// {{.TypeName}}BlockActionHandler defines a handler for a block action that occurs within the
+// "{{.CallbackID}}" view. It automatically receives the parsed state of all input blocks in that view.
+type {{.TypeName}}BlockActionHandler interface {
+    Handle(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction, input {{.TypeName}}) ([]SlackErrorResp, error)
+}
+{{end}}
 
 // Dispatcher handles the routing of all interaction payloads.
 type Dispatcher struct {
     signingSecret       string
 	viewHandlers        map[string]interface{}
-	blockActionHandlers map[string]BlockActionHandler
+	blockActionHandlers     BlockActionHandlers // A single handler for all simple block actions.
+	viewBlockActionHandlers map[string]interface{} // map[actionID]handler
 }
 
 // NewDispatcher creates a new dispatcher.
@@ -50,7 +63,7 @@ func NewDispatcher(signingSecret string) *Dispatcher {
 	return &Dispatcher{
 	    signingSecret      : signingSecret,
 		viewHandlers       : make(map[string]interface{}),
-		blockActionHandlers: make(map[string]BlockActionHandler),
+		viewBlockActionHandlers: make(map[string]interface{}),
 	}
 }
 
@@ -63,9 +76,17 @@ func (d *Dispatcher) Register{{.TypeName}}Handler(handler {{.TypeName}}Handler) 
 }
 {{end}}
 
-// RegisterBlockActionHandler registers a handler for a specific block action ID.
-func (d *Dispatcher) RegisterBlockActionHandler(actionID string, handler BlockActionHandler) {
-	d.blockActionHandlers[actionID] = handler
+{{range .Structs}}
+// Register{{.TypeName}}BlockActionHandler registers a handler for a block action by its action ID
+// that occurs within the "{{.CallbackID}}" view.
+func (d *Dispatcher) Register{{.TypeName}}BlockActionHandler(actionID string, handler {{.TypeName}}BlockActionHandler) {
+    d.viewBlockActionHandlers[actionID] = handler
+}
+{{end}}
+
+// RegisterBlockActionHandlers registers a handler that implements the BlockActionHandlers interface.
+func (d *Dispatcher) RegisterBlockActionHandlers(handler BlockActionHandlers) {
+	d.blockActionHandlers = handler
 }
 
 // HandleInteraction is the core logic that parses the request and calls the dispatcher.
@@ -176,14 +197,48 @@ func (d *Dispatcher) dispatchBlockActions(ctx context.Context, interaction slack
 	if interaction.ActionCallback.BlockActions == nil {
 		return nil, nil // No actions to process
 	}
+	var slackErrorResp []SlackErrorResp
 	for _, action := range interaction.ActionCallback.BlockActions {
-		if handler, ok := d.blockActionHandlers[action.ActionID]; ok {
-			if slackErrors, err := handler.Handle(ctx, interaction, *action); err != nil {
-				return slackErrors, fmt.Errorf("block action handler for action_id '%s' failed: %w", action.ActionID, err)
+		// First, check for view-specific handlers that expect state.
+		if handler, ok := d.viewBlockActionHandlers[action.ActionID]; ok {
+			if interaction.View.CallbackID != "" {
+				var handlerErr error
+				switch interaction.View.CallbackID {
+				{{- range .Structs}}
+				case "{{.CallbackID}}":
+					typedHandler, ok := handler.({{.TypeName}}BlockActionHandler)
+					if !ok { return nil, fmt.Errorf("handler for action '%s' in view '{{.CallbackID}}' has incorrect type", action.ActionID) }
+					var input {{.TypeName}}
+					if interaction.View.State != nil {
+						if err := unmarshalStateValues(interaction.View.State.Values, &input); err != nil {
+							return nil, fmt.Errorf("failed to bind state for action '%s' in '{{.CallbackID}}': %w", action.ActionID, err)
+						}
+					}
+					slackErrorResp, handlerErr = typedHandler.Handle(ctx, interaction, *action, input)
+				{{- end}}
+				}
+				if handlerErr != nil {
+					return nil, fmt.Errorf("view block action handler for '%s' failed: %w", action.ActionID, handlerErr)
+				}
+				continue
+			}
+		}
+
+		// If no view-specific handler was found, fall back to the comprehensive simple block action handler.
+		if d.blockActionHandlers != nil {
+			var handlerErr error
+			switch action.ActionID {
+			{{- range .SimpleActionIDs}}
+			case "{{.}}":
+				slackErrorResp, handlerErr = d.blockActionHandlers.Handle{{. | camel}}(ctx, interaction, *action)
+			{{- end}}
+			}
+			if handlerErr != nil {
+				return nil, fmt.Errorf("block action handler for '%s' failed: %w", action.ActionID, handlerErr)
 			}
 		}
 	}
-	return nil, nil
+	return slackErrorResp, nil
 }
 
 // unmarshalStateValues decodes the nested state values from a modal submission into the target struct.

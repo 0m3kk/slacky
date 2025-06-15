@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/om3kk/slacky/example/generated"
+
 	"github.com/sirupsen/logrus"
 	"github.com/slack-go/slack"
 )
@@ -32,6 +33,11 @@ func main() {
 		logger.Fatalf("failed to load modal view: %v", err)
 	}
 
+	blocks, err := loadMessageBlocks()
+	if err != nil {
+		logger.Fatalf("failed to load blocks: %v", err)
+	}
+
 	http.HandleFunc("/slack/interactive", dispatcher.HandleInteraction)
 	http.HandleFunc("/slack/events", func(w http.ResponseWriter, r *http.Request) {
 		command, err := slack.SlashCommandParse(r)
@@ -43,6 +49,12 @@ func main() {
 
 		if _, err := slackClient.OpenView(command.TriggerID, view); err != nil {
 			logger.Errorf("failed to open view: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		if _, _, _, err := slackClient.SendMessage(command.ChannelID, slack.MsgOptionBlocks(blocks...)); err != nil {
+			logger.Errorf("failed to send blocks: %v", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
@@ -69,8 +81,10 @@ func newDispatcher() (*generated.Dispatcher, error) {
 	if secret == "" {
 		return nil, fmt.Errorf("SLACK_SIGNING_SECRET environment variable is not set")
 	}
+	handler := &Handler{}
 	dispatcher := generated.NewDispatcher(secret)
-	dispatcher.RegisterFullInputModalInputHandler(&Handler{})
+	dispatcher.RegisterFullInputModalInputHandler(handler)
+	dispatcher.RegisterBlockActionHandlers(handler)
 	return dispatcher, nil
 }
 
@@ -87,10 +101,51 @@ func loadModalView() (slack.ModalViewRequest, error) {
 	return view, nil
 }
 
+func loadMessageBlocks() ([]slack.Block, error) {
+	messageJson, err := os.ReadFile("./example/message.json")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read blocks JSON: %v", err)
+	}
+
+	// Define an auxiliary struct to unmarshal the outer structure
+	var message struct {
+		Blocks json.RawMessage `json:"blocks"` // Unmarshal into RawMessage first
+	}
+	if err := json.Unmarshal(messageJson, &message); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal message blocks raw message: %v", err)
+	}
+
+	var slackBlocks slack.Blocks
+	blocksJson, err := json.Marshal(message.Blocks)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal blocks to raw: %v", err)
+	}
+	if err = json.Unmarshal(blocksJson, &slackBlocks); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal message blocks: %v", err)
+	}
+
+	return slackBlocks.BlockSet, nil
+}
+
 type Handler struct{}
 
 func (h *Handler) HandleFullInputModal(ctx context.Context, interaction slack.InteractionCallback, input generated.FullInputModalInput) ([]generated.SlackErrorResp, error) {
 	inputJson, _ := json.MarshalIndent(input, "", "\t")
 	logger.Infof("Received input: %s", string(inputJson))
+	return nil, nil
+}
+
+func (h *Handler) HandleButtonDeny(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]generated.SlackErrorResp, error) {
+	fmt.Println("Deny button clicked", action.Value)
+	return nil, nil
+}
+
+func (h *Handler) HandleButtonMoreInfo(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]generated.SlackErrorResp, error) {
+	fmt.Println("More info button clicked", action.Value)
+	return nil, nil
+}
+
+func (h *Handler) HandleButtonApprove(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]generated.SlackErrorResp, error) {
+	fmt.Println("Approve button clicked", action.Value)
 	return nil, nil
 }

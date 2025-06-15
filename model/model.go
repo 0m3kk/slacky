@@ -5,6 +5,7 @@ package model
 
 // SlackModal represents the top-level structure of a Slack modal view.
 type SlackModal struct {
+	Type       string       `json:"type"`
 	CallbackID string       `json:"callback_id"`
 	Blocks     []SlackBlock `json:"blocks"`
 }
@@ -12,9 +13,10 @@ type SlackModal struct {
 // SlackBlock represents a single block in the modal's layout.
 // We are primarily interested in blocks of type "input".
 type SlackBlock struct {
-	Type    string        `json:"type"`
-	Element *SlackElement `json:"element"` // Only relevant for "input" blocks
-	Label   *SlackText    `json:"label"`   // For context, not directly used in generation
+	Type     string         `json:"type"`
+	Element  *SlackElement  `json:"element,omitempty"`  // For "input" blocks
+	Elements []SlackElement `json:"elements,omitempty"` // For "actions" blocks
+	Label    *SlackText     `json:"label"`              // For context, not directly used in generation
 }
 
 // SlackElement represents an interactive component within a block.
@@ -48,8 +50,9 @@ type TemplateData struct {
 
 // DispatcherTemplateData holds the data for the dispatcher template.
 type DispatcherTemplateData struct {
-	PackageName string
-	Structs     []StructInfo
+	PackageName     string
+	Structs         []StructInfo
+	SimpleActionIDs []string // holds all unique action IDs for simple handlers
 }
 
 // StructInfo holds metadata about each generated struct for the dispatcher.

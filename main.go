@@ -37,13 +37,15 @@ func main() {
 	}
 
 	// 3. Create the output directory if it doesn't exist.
-	if err := os.MkdirAll(*outputDir, 0755); err != nil {
+	if err := os.MkdirAll(*outputDir, 0o755); err != nil {
 		log.Fatalf("Failed to create output directory '%s': %v", *outputDir, err)
 	}
 	fmt.Printf("Output will be saved in './%s/'\n", *outputDir)
 
 	// A slice to hold information about each successfully generated struct.
 	var generatedStructs []model.StructInfo
+	// Use a map to collect unique action IDs for simple handlers.
+	simpleActionIDs := make(map[string]struct{})
 
 	// 4. Process each file to generate individual struct files.
 	for _, jsonFilePath := range jsonFiles {
@@ -63,32 +65,51 @@ func main() {
 			continue
 		}
 
-		// Generate the Go struct source code from the parsed data
-		generatedCode, structName, err := generator.GenerateStruct(modal, structTemplateFile, *outPkgName)
-		if err != nil {
-			log.Fatalf("Could not generate struct for %s: %v", jsonFilePath, err)
+		// Find simple action IDs within the blocks.
+		for _, block := range modal.Blocks {
+			if block.Type == "actions" {
+				for _, el := range block.Elements {
+					if el.ActionID != "" {
+						simpleActionIDs[el.ActionID] = struct{}{}
+					}
+				}
+			}
 		}
 
-		// Write the generated code to an output file in the specified directory
-		baseName := strings.TrimSuffix(filepath.Base(jsonFilePath), filepath.Ext(jsonFilePath))
-		outputFileName := fmt.Sprintf("%s.go", baseName)
-		outputFilePath := filepath.Join(*outputDir, outputFileName)
+		if modal.Type == "modal" {
+			// Generate the Go struct source code from the parsed data
+			generatedCode, structName, err := generator.GenerateStruct(modal, structTemplateFile, *outPkgName)
+			if err != nil {
+				log.Fatalf("Could not generate struct for %s: %v", jsonFilePath, err)
+			}
 
-		if err := os.WriteFile(outputFilePath, generatedCode, 0644); err != nil {
-			log.Fatalf("FATAL: Failed to write generated code to file '%s': %v", outputFilePath, err)
+			// Write the generated code to an output file in the specified directory
+			baseName := strings.TrimSuffix(filepath.Base(jsonFilePath), filepath.Ext(jsonFilePath))
+			outputFileName := fmt.Sprintf("%s.go", baseName)
+			outputFilePath := filepath.Join(*outputDir, outputFileName)
+
+			if err := os.WriteFile(outputFilePath, generatedCode, 0o644); err != nil {
+				log.Fatalf("FATAL: Failed to write generated code to file '%s': %v", outputFilePath, err)
+			}
+
+			fmt.Printf("Successfully generated %s\n", outputFilePath)
+
+			// Add info to our slice for the dispatcher
+			generatedStructs = append(generatedStructs, model.StructInfo{
+				CallbackID: modal.CallbackID,
+				TypeName:   structName,
+			})
 		}
+	}
 
-		fmt.Printf("Successfully generated %s\n", outputFilePath)
-
-		// Add info to our slice for the dispatcher
-		generatedStructs = append(generatedStructs, model.StructInfo{
-			CallbackID: modal.CallbackID,
-			TypeName:   structName,
-		})
+	// Convert the map of unique action IDs to a slice for the template.
+	simpleActionIDSlice := make([]string, 0, len(simpleActionIDs))
+	for id := range simpleActionIDs {
+		simpleActionIDSlice = append(simpleActionIDSlice, id)
 	}
 
 	// 5. Generate the dispatcher file in the specified directory.
-	if err := generator.GenerateDispatcher(generatedStructs, dispatcherTemplateFile, *outputDir); err != nil {
+	if err := generator.GenerateDispatcher(generatedStructs, simpleActionIDSlice, dispatcherTemplateFile, *outputDir, *outPkgName); err != nil {
 		log.Fatalf("FATAL: Failed to generate dispatcher: %v", err)
 	}
 

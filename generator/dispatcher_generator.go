@@ -13,15 +13,22 @@ import (
 )
 
 // GenerateDispatcher creates the dispatcher file that routes view submissions.
-func GenerateDispatcher(structs []model.StructInfo, tmplPath string, outputDir string) error {
-	if len(structs) == 0 {
-		log.Println("No structs were generated, skipping dispatcher creation.")
+func GenerateDispatcher(
+	structs []model.StructInfo,
+	simpleActionIDs []string,
+	tmplPath string,
+	outputDir string,
+	pkgName string,
+) error {
+	if len(structs) == 0 && len(simpleActionIDs) == 0 {
+		log.Println("No modals or simple actions found, skipping dispatcher creation.")
 		return nil
 	}
 
 	data := model.DispatcherTemplateData{
-		PackageName: "generated",
-		Structs:     structs,
+		PackageName:     pkgName,
+		Structs:         structs,
+		SimpleActionIDs: simpleActionIDs,
 	}
 
 	// 1. Read and parse the template file
@@ -45,7 +52,7 @@ func GenerateDispatcher(structs []model.StructInfo, tmplPath string, outputDir s
 
 	// 4. Write the generated code to the dispatcher.go file
 	outputFilePath := filepath.Join(outputDir, "dispatcher.go")
-	if err := os.WriteFile(outputFilePath, formattedCode, 0644); err != nil {
+	if err := os.WriteFile(outputFilePath, formattedCode, 0o644); err != nil {
 		return fmt.Errorf("failed to write dispatcher file '%s': %w", outputFilePath, err)
 	}
 
