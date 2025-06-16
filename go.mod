@@ -1,4 +1,4 @@
-module github.com/om3kk/slacky
+module github.com/0m3kk/slacky
 
 go 1.24.3
 

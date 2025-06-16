@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/om3kk/slacky/example/generated"
+	"github.com/0m3kk/slacky/example/generated"
 
 	"github.com/sirupsen/logrus"
 	"github.com/slack-go/slack"

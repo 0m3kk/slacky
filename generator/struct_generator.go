@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"text/template"
 
-	"github.com/om3kk/slacky/model"
+	"github.com/0m3kk/slacky/model"
 	"github.com/stoewer/go-strcase"
 )
 

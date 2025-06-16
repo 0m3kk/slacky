@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/om3kk/slacky/generator"
-	"github.com/om3kk/slacky/model"
+	"github.com/0m3kk/slacky/generator"
+	"github.com/0m3kk/slacky/model"
 )
 
 const (
