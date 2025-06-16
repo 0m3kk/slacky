@@ -26,7 +26,7 @@ type SlackErrorResp struct {
 {{range .Structs}}
 // {{.TypeName}}Handler defines the handler for the "{{.CallbackID}}" view submission.
 // Developers should implement this for each modal.
-type {{.TypeName}}Handler interface {
+type {{camel .CallbackID}}Handler interface {
     Handle{{camel .CallbackID}}(ctx context.Context, interaction slack.InteractionCallback, input {{.TypeName}}) ([]SlackErrorResp, error)
 }
 {{end}}
@@ -45,8 +45,8 @@ type BlockActionHandlers interface {
 {{range .Structs}}
 // {{.TypeName}}BlockActionHandler defines a handler for a block action that occurs within the
 // "{{.CallbackID}}" view. It automatically receives the parsed state of all input blocks in that view.
-type {{.TypeName}}BlockActionHandler interface {
-    Handle(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction, input {{.TypeName}}) ([]SlackErrorResp, error)
+type {{camel .CallbackID}}BlockActionHandler interface {
+    Handle{{camel .CallbackID}}(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction, input {{.TypeName}}) ([]SlackErrorResp, error)
 }
 {{end}}
 
@@ -71,7 +71,7 @@ func NewDispatcher(signingSecret string) *Dispatcher {
 
 {{range .Structs}}
 // Register{{.TypeName}}Handler registers a handler for the "{{.CallbackID}}" view submission.
-func (d *Dispatcher) Register{{.TypeName}}Handler(handler {{.TypeName}}Handler) {
+func (d *Dispatcher) Register{{.TypeName}}Handler(handler {{camel .CallbackID}}Handler) {
     d.viewHandlers["{{.CallbackID}}"] = handler
 }
 {{end}}
@@ -79,7 +79,7 @@ func (d *Dispatcher) Register{{.TypeName}}Handler(handler {{.TypeName}}Handler) 
 {{range .Structs}}
 // Register{{.TypeName}}BlockActionHandler registers a handler for a block action by its action ID
 // that occurs within the "{{.CallbackID}}" view.
-func (d *Dispatcher) Register{{.TypeName}}BlockActionHandler(actionID string, handler {{.TypeName}}BlockActionHandler) {
+func (d *Dispatcher) Register{{.TypeName}}BlockActionHandler(actionID string, handler {{camel .CallbackID}}BlockActionHandler) {
     d.viewBlockActionHandlers[actionID] = handler
 }
 {{end}}
@@ -177,7 +177,7 @@ func (d *Dispatcher) dispatchViewSubmission(ctx context.Context, interaction sla
 	switch callbackID {
 	{{- range .Structs}}
 	case "{{.CallbackID}}":
-		typedHandler, ok := handler.({{.TypeName}}Handler)
+		typedHandler, ok := handler.({{camel .CallbackID}}Handler)
 		if !ok {
 			return nil, fmt.Errorf("handler for {{.CallbackID}} has incorrect type")
 		}
@@ -206,7 +206,7 @@ func (d *Dispatcher) dispatchBlockActions(ctx context.Context, interaction slack
 				switch interaction.View.CallbackID {
 				{{- range .Structs}}
 				case "{{.CallbackID}}":
-					typedHandler, ok := handler.({{.TypeName}}BlockActionHandler)
+					typedHandler, ok := handler.({{camel .CallbackID}}BlockActionHandler)
 					if !ok { return nil, fmt.Errorf("handler for action '%s' in view '{{.CallbackID}}' has incorrect type", action.ActionID) }
 					var input {{.TypeName}}
 					if interaction.View.State != nil {
@@ -214,7 +214,7 @@ func (d *Dispatcher) dispatchBlockActions(ctx context.Context, interaction slack
 							return nil, fmt.Errorf("failed to bind state for action '%s' in '{{.CallbackID}}': %w", action.ActionID, err)
 						}
 					}
-					slackErrorResp, handlerErr = typedHandler.Handle(ctx, interaction, *action, input)
+					slackErrorResp, handlerErr = typedHandler.Handle{{camel .CallbackID}}(ctx, interaction, *action, input)
 				{{- end}}
 				}
 				if handlerErr != nil {
