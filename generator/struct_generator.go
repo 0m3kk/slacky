@@ -6,16 +6,15 @@ import (
 	"fmt"
 	"go/format"
 	"log"
-	"path/filepath"
-	"text/template"
 
 	"github.com/0m3kk/slacky/model"
+	"github.com/0m3kk/slacky/templates"
 	"github.com/stoewer/go-strcase"
 )
 
 // GenerateStruct processes a SlackModal, validates it, and generates Go code.
 // It now returns the generated code, the struct name, and an error.
-func GenerateStruct(modal model.SlackModal, tmplPath, pkgName string) ([]byte, string, error) {
+func GenerateStruct(modal model.SlackModal, tmplName templates.Name, pkgName string) ([]byte, string, error) {
 	// 1. Validate the modal's callback_id
 	if modal.CallbackID == "" {
 		return nil, "", errors.New("validation failed: modal 'callback_id' is missing or empty")
@@ -76,10 +75,10 @@ func GenerateStruct(modal model.SlackModal, tmplPath, pkgName string) ([]byte, s
 		log.Printf("WARNING: No input elements found in modal with callback_id '%s'. An empty struct will be generated.", modal.CallbackID)
 	}
 
-	// 5. Read and parse the template file with custom functions
-	tmpl, err := template.New(filepath.Base(tmplPath)).Funcs(helperFunc).ParseFiles(tmplPath)
-	if err != nil {
-		return nil, "", fmt.Errorf("failed to parse template file '%s': %w", tmplPath, err)
+	// 5. Get template
+	tmpl, ok := templates.GetTemplate(tmplName)
+	if !ok {
+		return nil, "", fmt.Errorf("cannot find struct template")
 	}
 
 	// 6. Execute the template

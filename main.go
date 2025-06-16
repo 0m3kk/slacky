@@ -12,11 +12,7 @@ import (
 
 	"github.com/0m3kk/slacky/generator"
 	"github.com/0m3kk/slacky/model"
-)
-
-const (
-	structTemplateFile     = "templates/struct.tmpl"
-	dispatcherTemplateFile = "templates/dispatcher.tmpl"
+	"github.com/0m3kk/slacky/templates"
 )
 
 func main() {
@@ -78,7 +74,7 @@ func main() {
 
 		if modal.Type == "modal" {
 			// Generate the Go struct source code from the parsed data
-			generatedCode, structName, err := generator.GenerateStruct(modal, structTemplateFile, *outPkgName)
+			generatedCode, structName, err := generator.GenerateStruct(modal, templates.StructTmpl, *outPkgName)
 			if err != nil {
 				log.Fatalf("Could not generate struct for %s: %v", jsonFilePath, err)
 			}
@@ -109,7 +105,7 @@ func main() {
 	}
 
 	// 5. Generate the dispatcher file in the specified directory.
-	if err := generator.GenerateDispatcher(generatedStructs, simpleActionIDSlice, dispatcherTemplateFile, *outputDir, *outPkgName); err != nil {
+	if err := generator.GenerateDispatcher(generatedStructs, simpleActionIDSlice, templates.DispatcherTmpl, *outputDir, *outPkgName); err != nil {
 		log.Fatalf("FATAL: Failed to generate dispatcher: %v", err)
 	}
 

@@ -7,16 +7,16 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"text/template"
 
 	"github.com/0m3kk/slacky/model"
+	"github.com/0m3kk/slacky/templates"
 )
 
 // GenerateDispatcher creates the dispatcher file that routes view submissions.
 func GenerateDispatcher(
 	structs []model.StructInfo,
 	simpleActionIDs []string,
-	tmplPath string,
+	tmplName templates.Name,
 	outputDir string,
 	pkgName string,
 ) error {
@@ -31,10 +31,10 @@ func GenerateDispatcher(
 		SimpleActionIDs: simpleActionIDs,
 	}
 
-	// 1. Read and parse the template file
-	tmpl, err := template.New(filepath.Base(tmplPath)).Funcs(helperFunc).ParseFiles(tmplPath)
-	if err != nil {
-		return fmt.Errorf("failed to parse dispatcher template file '%s': %w", tmplPath, err)
+	// 1. Get template by name
+	tmpl, ok := templates.GetTemplate(tmplName)
+	if !ok {
+		return fmt.Errorf("cannot find dispatcher template")
 	}
 
 	// 2. Execute the template
