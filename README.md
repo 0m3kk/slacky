@@ -1,8 +1,8 @@
-# **Slack Modal & Interaction Codegen for Go**
+# ✨ **Slack Modal & Interaction Codegen for Go**
 
 This tool is a command-line code generator that automates the creation of Go structs and a dispatcher for handling Slack Block Kit modal submissions and block actions. It reads Slack's JSON modal definitions and produces type-safe Go code, significantly simplifying the backend logic required to process Slack interactions.
 
-## **Features**
+## **Features 🚀**
 
 * **Struct Generation**: Automatically creates Go structs from your modal's input blocks with correct Go types (string, int64, []string, etc.).
 * **Dispatcher Generation**: Generates a central Dispatcher to route both view_submission and block_actions payloads to the correct, strongly-typed handlers.
@@ -13,9 +13,9 @@ This tool is a command-line code generator that automates the creation of Go str
 * **Validation**: Enforces the presence of callback_id and action_id, failing fast on invalid JSON definitions.
 * **Customizable Output**: Use the -output flag to specify where to save the generated files.
 
-## **How to Use**
+## **How to Use 💡**
 
-### **Step 1: Define Your Slack Modal JSON**
+### **Step 1: Define Your Slack Modal JSON 📝**
 
 Create one or more JSON files that define your Slack modals.
 
@@ -48,23 +48,25 @@ Create one or more JSON files that define your Slack modals.
     }
   ]
 }
-```
+````
 
-### **Step 2: Run the Code Generator**
+### **Step 2: Run the Code Generator ⚙️**
 
 Execute the program from your terminal, passing the paths to your JSON files. You can use the -output flag to change the destination directory.
 
 # Generate code in the default 'generated' directory
+
 ```sh
 go run . feedback_modal.json
 ```
 
 # Generate code in a custom directory
+
 ```sh
 go run . -output ./internal/slack/generated feedback_modal.json
 ```
 
-### **Step 3: Implement Handlers and Run the Server**
+### **Step 3: Implement Handlers and Run the Server 💻**
 
 In your application's main entry point, import the generated package, implement the handler interfaces, and use the provided NewInteractionHandler to run a secure web server.
 
@@ -78,7 +80,7 @@ import (
     "net/http"
     "os"
 
-    "github.com/slack-go/slack"
+    "[github.com/slack-go/slack](https://github.com/slack-go/slack)"
     // Update this path to your generated code's location
     "path/to/your/project/generated_structs"
 )
@@ -119,6 +121,6 @@ func main() {
 }
 ```
 
-### **Step 4: Configure Your Slack App**
+### **Step 4: Configure Your Slack App ⚙️**
 
 In your Slack App's configuration dashboard under "Interactivity & Shortcuts", set your Request URL to https://your-public-url.com/slack/interactions.
