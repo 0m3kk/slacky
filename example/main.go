@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/0m3kk/slacky/example/generated"
-
 	"github.com/sirupsen/logrus"
 	"github.com/slack-go/slack"
+
+	"github.com/0m3kk/slacky/example/generated"
 )
 
 var logger = logrus.New()
@@ -62,7 +62,9 @@ func main() {
 
 	port := ":8080"
 	logger.Infof("Server listening on port %s...", port)
-	logger.Infof("Make sure your Slack App's Request URL is set to your public endpoint, e.g., https://your-ngrok-url.ngrok-free.app/slack/interactive")
+	logger.Infof(
+		"Make sure your Slack App's Request URL is set to your public endpoint, e.g., https://your-ngrok-url.ngrok-free.app/slack/interactive",
+	)
 	if err := http.ListenAndServe(port, nil); err != nil {
 		logger.Fatalf("failed to start server: %v", err)
 	}
@@ -129,23 +131,39 @@ func loadMessageBlocks() ([]slack.Block, error) {
 
 type Handler struct{}
 
-func (h *Handler) HandleFullInputModal(ctx context.Context, interaction slack.InteractionCallback, input generated.FullInputModalInput) ([]generated.SlackErrorResp, error) {
+func (h *Handler) HandleFullInputModal(
+	ctx context.Context,
+	interaction slack.InteractionCallback,
+	input generated.FullInputModalInput,
+) error {
 	inputJson, _ := json.MarshalIndent(input, "", "\t")
 	logger.Infof("Received input: %s", string(inputJson))
-	return nil, nil
+	return nil
 }
 
-func (h *Handler) HandleButtonDeny(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]generated.SlackErrorResp, error) {
+func (h *Handler) HandleButtonDeny(
+	ctx context.Context,
+	interaction slack.InteractionCallback,
+	action slack.BlockAction,
+) error {
 	fmt.Println("Deny button clicked", action.Value)
-	return nil, nil
+	return nil
 }
 
-func (h *Handler) HandleButtonMoreInfo(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]generated.SlackErrorResp, error) {
+func (h *Handler) HandleButtonMoreInfo(
+	ctx context.Context,
+	interaction slack.InteractionCallback,
+	action slack.BlockAction,
+) error {
 	fmt.Println("More info button clicked", action.Value)
-	return nil, nil
+	return nil
 }
 
-func (h *Handler) HandleButtonApprove(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]generated.SlackErrorResp, error) {
+func (h *Handler) HandleButtonApprove(
+	ctx context.Context,
+	interaction slack.InteractionCallback,
+	action slack.BlockAction,
+) error {
 	fmt.Println("Approve button clicked", action.Value)
-	return nil, nil
+	return nil
 }
