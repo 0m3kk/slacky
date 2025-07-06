@@ -16,17 +16,12 @@ import (
 	"github.com/slack-go/slack"
 )
 
-type SlackErrorResp struct {
-	Name  string `json:"name"`
-	Error string `json:"error"`
-}
-
 // --- View Submission Handlers ---
 
 // FullInputModalInputHandler defines the handler for the "full_input_modal" view submission.
 // Developers should implement this for each modal.
 type FullInputModalHandler interface {
-	HandleFullInputModal(ctx context.Context, interaction slack.InteractionCallback, input FullInputModalInput) ([]SlackErrorResp, error)
+	HandleFullInputModal(ctx context.Context, interaction slack.InteractionCallback, input FullInputModalInput) error
 }
 
 // --- Block Action Handlers ---
@@ -34,15 +29,15 @@ type FullInputModalHandler interface {
 // BlockActionHandlers defines an interface for all simple block actions that do not require view state.
 // A single struct should implement all of these methods.
 type BlockActionHandlers interface {
-	HandleButtonApprove(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]SlackErrorResp, error)
-	HandleButtonDeny(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]SlackErrorResp, error)
-	HandleButtonMoreInfo(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) ([]SlackErrorResp, error)
+	HandleButtonApprove(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) error
+	HandleButtonDeny(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) error
+	HandleButtonMoreInfo(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction) error
 }
 
 // FullInputModalInputBlockActionHandler defines a handler for a block action that occurs within the
 // "full_input_modal" view. It automatically receives the parsed state of all input blocks in that view.
 type FullInputModalBlockActionHandler interface {
-	HandleFullInputModal(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction, input FullInputModalInput) ([]SlackErrorResp, error)
+	HandleFullInputModalBlockAction(ctx context.Context, interaction slack.InteractionCallback, action slack.BlockAction, input FullInputModalInput) error
 }
 
 // Dispatcher handles the routing of all interaction payloads.
@@ -97,20 +92,9 @@ func (d *Dispatcher) HandleInteraction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Dispatch the interaction to the appropriate handler.
-	if slackErrors, err := d.Dispatch(r.Context(), interaction); err != nil {
+	if err := d.Dispatch(r.Context(), interaction); err != nil {
 		log.Printf("[ERROR] Dispatcher failed: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
-		return
-	} else if slackErrors != nil {
-		errorJson, err := json.Marshal(err)
-		if err != nil {
-			log.Printf("[ERROR] Dispatcher failed: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		w.Write(errorJson)
-		w.WriteHeader(http.StatusOK)
 		return
 	}
 
@@ -146,47 +130,46 @@ func (d *Dispatcher) verifySigningSecret(r *http.Request) error {
 }
 
 // Dispatch routes the incoming interaction to the appropriate registered handler.
-func (d *Dispatcher) Dispatch(ctx context.Context, interaction slack.InteractionCallback) ([]SlackErrorResp, error) {
+func (d *Dispatcher) Dispatch(ctx context.Context, interaction slack.InteractionCallback) error {
 	switch interaction.Type {
 	case slack.InteractionTypeViewSubmission:
 		return d.dispatchViewSubmission(ctx, interaction)
 	case slack.InteractionTypeBlockActions:
 		return d.dispatchBlockActions(ctx, interaction)
 	default:
-		return nil, fmt.Errorf("unsupported interaction type %s", interaction.Type)
+		return fmt.Errorf("unsupported interaction type %s", interaction.Type)
 	}
 }
 
 // dispatchViewSubmission handles routing for view submissions.
-func (d *Dispatcher) dispatchViewSubmission(ctx context.Context, interaction slack.InteractionCallback) ([]SlackErrorResp, error) {
+func (d *Dispatcher) dispatchViewSubmission(ctx context.Context, interaction slack.InteractionCallback) error {
 	callbackID := interaction.View.CallbackID
 	handler, ok := d.viewHandlers[callbackID]
 	if !ok {
-		return nil, fmt.Errorf("no view handler registered for callback_id: %s", callbackID)
+		return fmt.Errorf("no view handler registered for callback_id: %s", callbackID)
 	}
 
 	switch callbackID {
 	case "full_input_modal":
 		typedHandler, ok := handler.(FullInputModalHandler)
 		if !ok {
-			return nil, fmt.Errorf("handler for full_input_modal has incorrect type")
+			return fmt.Errorf("handler for full_input_modal has incorrect type")
 		}
 		var input FullInputModalInput
 		if err := unmarshalStateValues(interaction.View.State.Values, &input); err != nil {
-			return nil, fmt.Errorf("failed to bind values for 'full_input_modal': %w", err)
+			return fmt.Errorf("failed to bind values for 'full_input_modal': %w", err)
 		}
 		return typedHandler.HandleFullInputModal(ctx, interaction, input)
 	default:
-		return nil, fmt.Errorf("internal dispatcher error: callback_id %s not found in switch", callbackID)
+		return fmt.Errorf("internal dispatcher error: callback_id %s not found in switch", callbackID)
 	}
 }
 
 // dispatchBlockActions handles routing for block actions.
-func (d *Dispatcher) dispatchBlockActions(ctx context.Context, interaction slack.InteractionCallback) ([]SlackErrorResp, error) {
+func (d *Dispatcher) dispatchBlockActions(ctx context.Context, interaction slack.InteractionCallback) error {
 	if interaction.ActionCallback.BlockActions == nil {
-		return nil, nil // No actions to process
+		return nil // No actions to process
 	}
-	var slackErrorResp []SlackErrorResp
 	for _, action := range interaction.ActionCallback.BlockActions {
 		// First, check for view-specific handlers that expect state.
 		if handler, ok := d.viewBlockActionHandlers[action.ActionID]; ok {
@@ -196,18 +179,18 @@ func (d *Dispatcher) dispatchBlockActions(ctx context.Context, interaction slack
 				case "full_input_modal":
 					typedHandler, ok := handler.(FullInputModalBlockActionHandler)
 					if !ok {
-						return nil, fmt.Errorf("handler for action '%s' in view 'full_input_modal' has incorrect type", action.ActionID)
+						return fmt.Errorf("handler for action '%s' in view 'full_input_modal' has incorrect type", action.ActionID)
 					}
 					var input FullInputModalInput
 					if interaction.View.State != nil {
 						if err := unmarshalStateValues(interaction.View.State.Values, &input); err != nil {
-							return nil, fmt.Errorf("failed to bind state for action '%s' in 'full_input_modal': %w", action.ActionID, err)
+							return fmt.Errorf("failed to bind state for action '%s' in 'full_input_modal': %w", action.ActionID, err)
 						}
 					}
-					slackErrorResp, handlerErr = typedHandler.HandleFullInputModal(ctx, interaction, *action, input)
+					handlerErr = typedHandler.HandleFullInputModalBlockAction(ctx, interaction, *action, input)
 				}
 				if handlerErr != nil {
-					return nil, fmt.Errorf("view block action handler for '%s' failed: %w", action.ActionID, handlerErr)
+					return fmt.Errorf("view block action handler for '%s' failed: %w", action.ActionID, handlerErr)
 				}
 				continue
 			}
@@ -218,18 +201,18 @@ func (d *Dispatcher) dispatchBlockActions(ctx context.Context, interaction slack
 			var handlerErr error
 			switch action.ActionID {
 			case "button_approve":
-				slackErrorResp, handlerErr = d.blockActionHandlers.HandleButtonApprove(ctx, interaction, *action)
+				handlerErr = d.blockActionHandlers.HandleButtonApprove(ctx, interaction, *action)
 			case "button_deny":
-				slackErrorResp, handlerErr = d.blockActionHandlers.HandleButtonDeny(ctx, interaction, *action)
+				handlerErr = d.blockActionHandlers.HandleButtonDeny(ctx, interaction, *action)
 			case "button_more_info":
-				slackErrorResp, handlerErr = d.blockActionHandlers.HandleButtonMoreInfo(ctx, interaction, *action)
+				handlerErr = d.blockActionHandlers.HandleButtonMoreInfo(ctx, interaction, *action)
 			}
 			if handlerErr != nil {
-				return nil, fmt.Errorf("block action handler for '%s' failed: %w", action.ActionID, handlerErr)
+				return fmt.Errorf("block action handler for '%s' failed: %w", action.ActionID, handlerErr)
 			}
 		}
 	}
-	return slackErrorResp, nil
+	return nil
 }
 
 // unmarshalStateValues decodes the nested state values from a modal submission into the target struct.
